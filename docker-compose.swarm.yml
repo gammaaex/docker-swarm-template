@@ -1,0 +1,72 @@
+version: "3"
+
+services:
+  mysql:
+    container_name: db
+    image: mariadb:10.3
+    env_file: .env
+    ports:
+      - $MYSQL_LISTEN_PORT:3306
+    volumes:
+      - ./mariadb/data:$MYSQL_DATA_DIR
+      - ./mariadb/init:/docker-entrypoint-initdb.d
+      - ./mariadb/conf.d:/etc/mysql/conf.d
+    deploy:
+      labels:
+        net.gammaaex.description: "This label will appear on the mysql service"
+      # placement:
+      #   constraints:
+      #     - node.role == worker
+
+  phpmyadmin:
+    container_name: pma
+    image: phpmyadmin/phpmyadmin
+    env_file: .env
+    ports:
+      - $PHPMYADMIN_LISTEN_PORT:80
+    volumes:
+      - ./phpmyadmin/sessions:/var/lib/php7/session
+    deploy:
+      labels:
+        net.gammaaex.description: "This label will appear on the phpmyadmin service"
+      # placement:
+      #   constraints:
+      #     - node.role == worker
+    depends_on:
+      - mysql
+
+  apache:
+    container_name: apache
+    env_file: .env
+    build: ../
+    ports:
+      - $APACHE_LISTEN_PORT:80
+    volumes:
+      - $PUBLIC_DIR:/var/www/html
+      - ./apache2/sites-available:/etc/apache2/sites-available
+    depends_on:
+      - mysql
+    deploy:
+      replicas: 2
+      labels:
+        net.gammaaex.description: "This label will appear on the apache service"
+      # placement:
+      #   constraints:
+      #     - node.role == worker
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer
+    ports:
+      - 9000:9000
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -H unix:///var/run/docker.sock
+    deploy:
+      mode: global
+      labels:
+        net.gammaaex.description: "This label will appear on the portainer service"
+      placement:
+        constraints:
+          - node.role == manager
